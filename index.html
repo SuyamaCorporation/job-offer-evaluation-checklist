@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Offer Evaluation Decision Checklist</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+  <div class="max-w-2xl mx-auto">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">Job Offer Evaluation Checklist</h1>
+      <p class="text-gray-500 text-sm mt-1">Rate each factor and set personal importance to get a weighted score</p>
+    </header>
+
+    <section id="checklist" class="space-y-3 mb-6" aria-label="Job offer factors">
+    </section>
+
+    <section class="bg-white rounded-xl shadow p-5" aria-live="polite" aria-label="Score summary">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold text-gray-700">Overall Score</h2>
+        <div id="score-badge" class="text-2xl font-bold px-4 py-1 rounded-full"></div>
+      </div>
+      <div class="w-full bg-gray-100 rounded-full h-4 mb-3 overflow-hidden" role="progressbar" aria-label="Score progress">
+        <div id="score-bar" class="h-4 rounded-full transition-all duration-300 bg-blue-500"></div>
+      </div>
+      <p id="recommendation" class="text-sm font-medium text-center py-2 rounded-lg"></p>
+      <p class="text-xs text-gray-400 mt-2 text-center">Score = Σ(rating × weight) / max possible × 100</p>
+    </section>
+  </div>
+
+  <script>
+    const factors = [
+      { id: "salary",      label: "Salary & Compensation",      icon: "💰", desc: "Base pay, bonuses, equity" },
+      { id: "benefits",    label: "Benefits Package",           icon: "🏥", desc: "Health, dental, 401k, PTO" },
+      { id: "growth",      label: "Growth Opportunity",         icon: "📈", desc: "Promotions, learning, career path" },
+      { id: "culture",     label: "Company Culture",            icon: "🤝", desc: "Values, team dynamics, management" },
+      { id: "remote",      label: "Commute / Remote Flexibility",icon: "🏠", desc: "WFH options, location, hours" },
+      { id: "worklife",    label: "Work-Life Balance",          icon: "⚖️",  desc: "Hours, overtime, boundaries" },
+    ];
+
+    const state = {};
+    factors.forEach(f => {
+      state[f.id] = { rating: 3, weight: 2 };
+    });
+
+    function render() {
+      const container = document.getElementById("checklist");
+      if (container.children.length > 0) { updateScore(); return; }
+
+      factors.forEach(f => {
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-xl shadow p-4";
+        card.innerHTML = `
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <span class="text-lg mr-1" aria-hidden="true">${f.icon}</span>
+              <span class="font-semibold text-gray-800">${f.label}</span>
+              <p class="text-xs text-gray-400 mt-0.5">${f.desc}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs font-medium text-gray-600 block mb-1">Rating (1–5)</label>
+              <div class="flex gap-1" role="radiogroup" aria-label="${f.label} rating">
+                ${[1,2,3,4,5].map(v => `
+                  <button onclick="setState('${f.id}','rating',${v})"
+                    id="r-${f.id}-${v}"
+                    class="rating-btn w-9 h-9 rounded-lg border text-sm font-semibold transition ${state[f.id].rating === v ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-500 hover:bg-blue-50'}"
+                    aria-label="Rating ${v}" aria-pressed="${state[f.id].rating === v}">${v}</button>
+                `).join("")}
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-gray-600 block mb-1">Importance (1–3)</label>
+              <div class="flex gap-1" role="radiogroup" aria-label="${f.label} importance weight">
+                ${[1,2,3].map(v => `
+                  <button onclick="setState('${f.id}','weight',${v})"
+                    id="w-${f.id}-${v}"
+                    class="weight-btn w-9 h-9 rounded-lg border text-sm font-semibold transition ${state[f.id].weight === v ? 'bg-purple-600 text-white border-purple-600' : 'border-gray-300 text-gray-500 hover:bg-purple-50'}"
+                    aria-label="Importance ${v}" aria-pressed="${state[f.id].weight === v}">${v}</button>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      updateScore();
+    }
+
+    function setState(id, key, val) {
+      state[id][key] = val;
+      // Update button styles
+      const prefix = key === "rating" ? "r" : "w";
+      const max = key === "rating" ? 5 : 3;
+      const activeClass = key === "rating" ? "bg-blue-600 text-white border-blue-600" : "bg-purple-600 text-white border-purple-600";
+      const inactiveClass = key === "rating" ? "border-gray-300 text-gray-500 hover:bg-blue-50" : "border-gray-300 text-gray-500 hover:bg-purple-50";
+      for (let i = 1; i <= max; i++) {
+        const btn = document.getElementById(`${prefix}-${id}-${i}`);
+        if (!btn) continue;
+        btn.className = btn.className.replace(/bg-\w+-600 text-white border-\w+-600|border-gray-300 text-gray-500 hover:bg-\w+-50/g, "");
+        if (i === val) {
+          btn.classList.add(...activeClass.split(" "));
+          btn.setAttribute("aria-pressed", "true");
+        } else {
+          btn.classList.add(...inactiveClass.split(" "));
+          btn.setAttribute("aria-pressed", "false");
+        }
+      }
+      updateScore();
+    }
+
+    function updateScore() {
+      let total = 0, maxPossible = 0;
+      factors.forEach(f => {
+        total += state[f.id].rating * state[f.id].weight;
+        maxPossible += 5 * 3;
+      });
+      const pct = Math.round((total / maxPossible) * 100);
+
+      const badge = document.getElementById("score-badge");
+      const bar = document.getElementById("score-bar");
+      const rec = document.getElementById("recommendation");
+
+      badge.textContent = pct + "/100";
+      bar.style.width = pct + "%";
+
+      let color, msg;
+      if (pct >= 80) { color = "bg-green-500"; badge.className = "text-2xl font-bold px-4 py-1 rounded-full bg-green-100 text-green-700"; msg = "✅ Strong offer — worth accepting"; rec.className = "text-sm font-medium text-center py-2 rounded-lg bg-green-50 text-green-700"; }
+      else if (pct >= 60) { color = "bg-yellow-400"; badge.className = "text-2xl font-bold px-4 py-1 rounded-full bg-yellow-100 text-yellow-700"; msg = "🤔 Decent offer — negotiate key factors"; rec.className = "text-sm font-medium text-center py-2 rounded-lg bg-yellow-50 text-yellow-700"; }
+      else if (pct >= 40) { color = "bg-orange-400"; badge.className = "text-2xl font-bold px-4 py-1 rounded-full bg-orange-100 text-orange-700"; msg = "⚠️ Weak offer — significant concerns"; rec.className = "text-sm font-medium text-center py-2 rounded-lg bg-orange-50 text-orange-700"; }
+      else { color = "bg-red-500"; badge.className = "text-2xl font-bold px-4 py-1 rounded-full bg-red-100 text-red-700"; msg = "❌ Poor offer — consider declining"; rec.className = "text-sm font-medium text-center py-2 rounded-lg bg-red-50 text-red-700"; }
+
+      bar.className = `h-4 rounded-full transition-all duration-300 ${color}`;
+      rec.textContent = msg;
+    }
+
+    render();
+  </script>
+</body>
+</html>
